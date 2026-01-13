@@ -1,21 +1,29 @@
 export interface Product {
   id: string;
   name: string;
-  brand: string;
+  brand?: string;
   price: number;
   originalPrice?: number;
-  images: string[];
-  description: string;
-  category: 'femme' | 'homme' | 'unisexe';
-  intensity: 'légère' | 'modérée' | 'intense';
-  notes: {
+  images: string[] | null;
+  description: string | null;
+  category: string;
+  intensity: string | null;
+  notes?: {
     top: string[];
     heart: string[];
     base: string[];
   };
-  size: string;
+  top_notes?: string[] | null;
+  heart_notes?: string[] | null;
+  base_notes?: string[] | null;
+  size?: string;
+  volume?: string | null;
   isNew?: boolean;
   isBestSeller?: boolean;
+  is_new?: boolean | null;
+  is_bestseller?: boolean | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CartItem {
