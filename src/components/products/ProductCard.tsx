@@ -15,7 +15,25 @@ export const ProductCard = ({ product }: ProductCardProps) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
+    
+    // Normalize the product for cart
+    const cartProduct = {
+      ...product,
+      images: product.images || [],
+      description: product.description || '',
+      brand: product.brand || 'Pure Fragrances',
+      intensity: product.intensity || 'modérée',
+      size: product.size || product.volume || '100ml',
+      notes: product.notes || {
+        top: product.top_notes || [],
+        heart: product.heart_notes || [],
+        base: product.base_notes || [],
+      },
+      isNew: product.isNew ?? product.is_new ?? false,
+      isBestSeller: product.isBestSeller ?? product.is_bestseller ?? false,
+    };
+    
+    addToCart(cartProduct);
     toast({
       title: 'Ajouté au panier',
       description: `${product.name} a été ajouté à votre panier.`,
@@ -30,6 +48,13 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     }).format(price);
   };
 
+  const images = product.images || [];
+  const isNew = product.isNew ?? product.is_new;
+  const isBestSeller = product.isBestSeller ?? product.is_bestseller;
+  const brand = product.brand || 'Pure Fragrances';
+  const size = product.size || product.volume || '100ml';
+  const intensity = product.intensity || '';
+
   return (
     <Link
       to={`/produit/${product.id}`}
@@ -37,20 +62,26 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     >
       <div className="relative overflow-hidden bg-secondary aspect-[3/4] mb-4">
         {/* Image */}
-        <img
-          src={product.images[0]}
-          alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {images.length > 0 ? (
+          <img
+            src={images[0]}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            Aucune image
+          </div>
+        )}
         
         {/* Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
-          {product.isNew && (
+          {isNew && (
             <span className="bg-gold text-accent-foreground text-xs font-medium px-3 py-1 uppercase tracking-wider">
               Nouveau
             </span>
           )}
-          {product.isBestSeller && (
+          {isBestSeller && (
             <span className="bg-noir text-primary-foreground text-xs font-medium px-3 py-1 uppercase tracking-wider">
               Best-seller
             </span>
@@ -73,7 +104,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
       {/* Info */}
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground uppercase tracking-wider">
-          {product.brand}
+          {brand}
         </p>
         <h3 className="font-display text-lg group-hover:text-gold transition-colors">
           {product.name}
@@ -87,7 +118,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
           )}
         </div>
         <p className="text-xs text-muted-foreground capitalize">
-          {product.size} • {product.intensity}
+          {size}{intensity ? ` • ${intensity}` : ''}
         </p>
       </div>
     </Link>

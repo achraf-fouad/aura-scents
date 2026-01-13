@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { products } from '@/data/products';
+import { useProducts } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type SortOption = 'popularity' | 'price-asc' | 'price-desc' | 'newest';
 
@@ -21,6 +22,8 @@ const Shop = () => {
   const [selectedIntensities, setSelectedIntensities] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const { data: products = [], isLoading } = useProducts();
 
   const categories = ['femme', 'homme', 'unisexe'];
   const intensities = ['légère', 'modérée', 'intense'];
@@ -35,7 +38,7 @@ const Shop = () => {
 
     // Filter by intensity
     if (selectedIntensities.length > 0) {
-      result = result.filter(p => selectedIntensities.includes(p.intensity));
+      result = result.filter(p => p.intensity && selectedIntensities.includes(p.intensity));
     }
 
     // Filter by price
@@ -50,15 +53,15 @@ const Shop = () => {
         result.sort((a, b) => b.price - a.price);
         break;
       case 'newest':
-        result.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+        result.sort((a, b) => (b.is_new ? 1 : 0) - (a.is_new ? 1 : 0));
         break;
       case 'popularity':
       default:
-        result.sort((a, b) => (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0));
+        result.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0));
     }
 
     return result;
-  }, [selectedCategories, selectedIntensities, priceRange, sortBy]);
+  }, [products, selectedCategories, selectedIntensities, priceRange, sortBy]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev =>
@@ -216,7 +219,18 @@ const Shop = () => {
 
             {/* Products Grid */}
             <div className="flex-1">
-              {filteredProducts.length === 0 ? (
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="aspect-[3/4] w-full" />
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-6 w-32" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-muted-foreground mb-4">
                     Aucun produit ne correspond à vos critères.
