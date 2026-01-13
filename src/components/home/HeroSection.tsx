@@ -1,17 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-
 export const HeroSection = () => {
-  return (
-    <section className="relative h-screen min-h-[600px] flex items-center">
+  return <section className="relative h-screen min-h-[600px] flex items-center">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=1920&q=80"
-          alt="Luxury perfume"
-          className="w-full h-full object-cover"
-        />
+        <img src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=1920&q=80" alt="Luxury perfume" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-noir/90 via-noir/70 to-transparent" />
       </div>
 
@@ -45,11 +39,6 @@ export const HeroSection = () => {
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-        <div className="w-6 h-10 border-2 border-primary-foreground/30 rounded-full flex justify-center pt-2">
-          <div className="w-1 h-2 bg-primary-foreground/50 rounded-full animate-bounce" />
-        </div>
-      </div>
-    </section>
-  );
+      
+    </section>;
 };
