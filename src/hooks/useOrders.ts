@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
@@ -37,6 +38,23 @@ export interface OrderWithItems extends Order {
 }
 
 export const useOrders = () => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Subscribe to real-time order changes
+    const subscription = supabase
+      .from('orders')
+      .on('*', (payload) => {
+        // Invalidate and refetch orders on any change
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
@@ -48,6 +66,7 @@ export const useOrders = () => {
       if (error) throw error;
       return data as Order[];
     },
+    refetchInterval: 5000, // Refetch every 5 seconds as backup
   });
 };
 
