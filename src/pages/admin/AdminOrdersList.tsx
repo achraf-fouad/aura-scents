@@ -27,7 +27,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const AdminOrders: React.FC = () => {
+const AdminOrdersList: React.FC = () => {
   const { data: orders, isLoading } = useOrders();
   const deleteOrder = useDeleteOrder();
   const [searchQuery, setSearchQuery] = useState('');
@@ -165,4 +165,4 @@ const AdminOrders: React.FC = () => {
   );
 };
 
-export default AdminOrders;
+export default AdminOrdersList;

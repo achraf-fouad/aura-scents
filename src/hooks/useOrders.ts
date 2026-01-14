@@ -41,17 +41,20 @@ export const useOrders = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Subscribe to real-time order changes
-    const subscription = supabase
-      .from('orders')
-      .on('*', (payload) => {
-        // Invalidate and refetch orders on any change
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-      })
+    // Subscribe to real-time order changes using new API
+    const channel = supabase
+      .channel('orders_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('Order change detected:', payload);
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
+      )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
   }, [queryClient]);
 
@@ -63,10 +66,14 @@ export const useOrders = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching orders:', error);
+        throw error;
+      }
+      console.log('Orders fetched:', data);
       return data as Order[];
     },
-    refetchInterval: 5000, // Refetch every 5 seconds as backup
+    refetchInterval: 3000, // Refetch every 3 seconds
   });
 };
 
