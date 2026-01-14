@@ -1,36 +1,67 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import StatCard from '@/components/admin/StatCard';
 import { useProducts } from '@/hooks/useProducts';
-import { useOrders } from '@/hooks/useOrders';
 import { Package, ShoppingCart, Clock, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getStatusLabel, getStatusColor } from '@/hooks/useOrders';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
+/* ------------------ TYPES ------------------ */
+type Order = {
+  id: number;
+  customer: {
+    firstName: string;
+    lastName: string;
+  };
+  total: number;
+  status: 'pending' | 'confirmed';
+  createdAt: string;
+};
+
+/* ------------------ STATUS HELPERS ------------------ */
+const getStatusLabel = (status: string) =>
+  status === 'confirmed' ? 'Confirmée' : 'En attente';
+
+const getStatusColor = (status: string) =>
+  status === 'confirmed'
+    ? 'bg-green-100 text-green-700'
+    : 'bg-yellow-100 text-yellow-700';
+
 const AdminDashboard: React.FC = () => {
   const { data: products, isLoading: productsLoading } = useProducts();
-  const { data: orders, isLoading: ordersLoading } = useOrders();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
+  /* ------------------ LOAD ORDERS ------------------ */
+  useEffect(() => {
+    const storedOrders = JSON.parse(
+      localStorage.getItem('orders') || '[]'
+    );
+    setOrders(storedOrders);
+    setOrdersLoading(false);
+  }, []);
+
+  /* ------------------ STATS ------------------ */
   const totalProducts = products?.length || 0;
-  const totalOrders = orders?.length || 0;
-  const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0;
-  const confirmedOrders = orders?.filter(o => o.status === 'confirmed').length || 0;
-
-  const recentOrders = orders?.slice(0, 5) || [];
+  const totalOrders = orders.length;
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+  const confirmedOrders = orders.filter(o => o.status === 'confirmed').length;
+  const recentOrders = orders.slice(-5).reverse();
 
   return (
     <AdminLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-display font-semibold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Vue d'ensemble de votre boutique</p>
+          <h1 className="text-3xl font-display font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Vue d'ensemble de votre boutique
+          </p>
         </div>
 
-        {/* Stats Grid */}
+        {/* ------------------ STATS ------------------ */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {productsLoading ? (
             <Skeleton className="h-32" />
@@ -77,50 +108,56 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Recent Orders */}
+        {/* ------------------ RECENT ORDERS ------------------ */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl font-display">Commandes Récentes</CardTitle>
-            <Link 
-              to="/admin/orders" 
+            <CardTitle className="text-xl font-display">
+              Commandes Récentes
+            </CardTitle>
+            <Link
+              to="/admin/orders"
               className="text-sm text-accent hover:underline"
             >
               Voir tout
             </Link>
           </CardHeader>
+
           <CardContent>
             {ordersLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16" />
-                ))}
-              </div>
+              <Skeleton className="h-20" />
             ) : recentOrders.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 Aucune commande pour le moment
               </p>
             ) : (
               <div className="space-y-4">
-                {recentOrders.map((order) => (
+                {recentOrders.map(order => (
                   <Link
                     key={order.id}
                     to={`/admin/orders/${order.id}`}
-                    className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors"
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50"
                   >
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{order.customer_name}</p>
+                    <div>
+                      <p className="font-medium">
+                        {order.customer.firstName} {order.customer.lastName}
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(order.created_at), { 
+                        {formatDistanceToNow(new Date(order.createdAt), {
                           addSuffix: true,
-                          locale: fr 
+                          locale: fr,
                         })}
                       </p>
                     </div>
+
                     <div className="flex items-center gap-4">
-                      <span className="font-semibold text-foreground">
-                        {order.total.toFixed(2)} MAD
+                      <span className="font-semibold">
+                        {order.total.toFixed(0)} MAD
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          order.status
+                        )}`}
+                      >
                         {getStatusLabel(order.status)}
                       </span>
                     </div>
