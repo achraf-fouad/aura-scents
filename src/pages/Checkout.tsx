@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
 import { Check, Truck, Banknote } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -52,44 +53,61 @@ const Checkout = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    try {
+      setIsSubmitting(true);
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      /* 1️⃣ CREATE ORDER */
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          customer_name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          notes: formData.notes,
+          total: totalPrice,
+          status: 'pending',
+        })
+        .select()
+        .single();
 
-    const order = {
-      id: Date.now(),
-      customer: formData,
-      items: items.map(item => ({
-        productId: item.product.id,
-        name: item.product.name,
+      if (orderError) throw orderError;
+
+      /* 2️⃣ CREATE ORDER ITEMS */
+      const orderItems = items.map(item => ({
+        order_id: order.id,
+        product_id: item.product.id,
         quantity: item.quantity,
         price: item.product.price,
-      })),
-      total: totalPrice,
-      paymentMethod,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
+      }));
 
-    // ✅ FIX: SAVE ORDER
-    const existingOrders = JSON.parse(
-      localStorage.getItem('orders') || '[]'
-    );
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
 
-    localStorage.setItem(
-      'orders',
-      JSON.stringify([...existingOrders, order])
-    );
+      if (itemsError) throw itemsError;
 
-    clearCart();
+      /* 3️⃣ SUCCESS */
+      clearCart();
 
-    toast({
-      title: 'Commande confirmée !',
-      description: 'Nous vous contacterons bientôt pour confirmer votre commande.',
-    });
+      toast({
+        title: 'Commande confirmée ✅',
+        description:
+          'Nous vous contacterons bientôt pour confirmer votre commande.',
+      });
 
-    navigate('/confirmation');
-    setIsSubmitting(false);
+      navigate('/confirmation');
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erreur ❌',
+        description: "Impossible d'envoyer la commande.",
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -107,11 +125,14 @@ const Checkout = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+              {/* LEFT */}
               <div className="lg:col-span-2 space-y-8">
 
                 {/* CONTACT */}
                 <div className="bg-card border border-border p-6 md:p-8">
-                  <h2 className="font-display text-xl mb-6">Informations de contact</h2>
+                  <h2 className="font-display text-xl mb-6">
+                    Informations de contact
+                  </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Prénom *</Label>
@@ -134,14 +155,18 @@ const Checkout = () => {
 
                 {/* ADDRESS */}
                 <div className="bg-card border border-border p-6 md:p-8">
-                  <h2 className="font-display text-xl mb-6">Adresse de livraison</h2>
+                  <h2 className="font-display text-xl mb-6">
+                    Adresse de livraison
+                  </h2>
                   <Textarea name="address" required value={formData.address} onChange={handleInputChange} />
                   <Input name="city" required className="mt-4" value={formData.city} onChange={handleInputChange} />
                 </div>
 
                 {/* PAYMENT */}
                 <div className="bg-card border border-border p-6 md:p-8">
-                  <h2 className="font-display text-xl mb-6">Mode de paiement</h2>
+                  <h2 className="font-display text-xl mb-6">
+                    Mode de paiement
+                  </h2>
                   <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
                     <label className="flex gap-3 p-4 border cursor-pointer">
                       <RadioGroupItem value="cod" />
@@ -158,7 +183,7 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* SUMMARY */}
+              {/* RIGHT */}
               <div className="bg-secondary p-6 md:p-8 sticky top-28">
                 <h2 className="font-display text-xl mb-6">Votre commande</h2>
 
