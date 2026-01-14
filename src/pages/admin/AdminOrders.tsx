@@ -1,265 +1,267 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
+import {
+  useOrder,
+  useUpdateOrderStatus,
+  getStatusLabel,
+  getStatusColor,
+  OrderStatus,
+} from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Search, Eye, Trash2, ShoppingCart, Check, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowLeft, User, Phone, Mail, MapPin, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
 
-/* ---------------- TYPES ---------------- */
-type OrderStatus = 'pending' | 'confirmed' | 'cancelled';
+const statusOptions: { value: OrderStatus; label: string }[] = [
+  { value: 'pending', label: 'En attente' },
+  { value: 'confirmed', label: 'Confirmée' },
+  { value: 'shipped', label: 'Expédiée' },
+  { value: 'delivered', label: 'Livrée' },
+  { value: 'cancelled', label: 'Annulée' },
+];
 
-type Order = {
-  id: number;
-  customer: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    city?: string;
+const AdminOrderDetail: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const { data: order, isLoading } = useOrder(id ?? '');
+  const updateStatus = useUpdateOrderStatus();
+
+  const handleStatusChange = async (newStatus: OrderStatus) => {
+    if (!id || !order || order.status === newStatus) return;
+
+    try {
+      await updateStatus.mutateAsync({ id, status: newStatus });
+
+      toast({
+        title: 'Statut mis à jour ✅',
+        description: `Commande ${getStatusLabel(newStatus)}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erreur ❌',
+        description: 'Impossible de mettre à jour le statut.',
+        variant: 'destructive',
+      });
+    }
   };
-  total: number;
-  status: OrderStatus;
-  createdAt: string;
-};
 
-/* ---------------- STATUS HELPERS ---------------- */
-const getStatusLabel = (status: OrderStatus) => {
-  if (status === 'confirmed') return 'Confirmée';
-  if (status === 'cancelled') return 'Annulée';
-  return 'En attente';
-};
-
-const getStatusColor = (status: OrderStatus) => {
-  if (status === 'confirmed') return 'bg-green-100 text-green-700';
-  if (status === 'cancelled') return 'bg-red-100 text-red-700';
-  return 'bg-yellow-100 text-yellow-700';
-};
-
-const AdminOrders: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
-
-  /* ---------------- LOAD ORDERS ---------------- */
-  useEffect(() => {
-    const storedOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-    setOrders(storedOrders);
-    setIsLoading(false);
-  }, []);
-
-  /* ---------------- SEARCH ---------------- */
-  const filteredOrders = orders.filter(order => {
-    const fullName = `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase();
+  if (isLoading) {
     return (
-      fullName.includes(searchQuery.toLowerCase()) ||
-      order.customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.phone.includes(searchQuery)
+      <AdminLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Skeleton className="h-64 lg:col-span-2" />
+            <Skeleton className="h-64" />
+          </div>
+        </div>
+      </AdminLayout>
     );
-  });
+  }
 
-  /* ---------------- UPDATE STATUS ---------------- */
-  const updateOrderStatus = (id: number, status: OrderStatus) => {
-    const updatedOrders = orders.map(order =>
-      order.id === id ? { ...order, status } : order
+  if (!order) {
+    return (
+      <AdminLayout>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Commande non trouvée</p>
+          <Button variant="link" onClick={() => navigate('/admin/orders')}>
+            Retour aux commandes
+          </Button>
+        </div>
+      </AdminLayout>
     );
-
-    setOrders(updatedOrders);
-    localStorage.setItem('orders', JSON.stringify(updatedOrders));
-
-    toast({
-      title: 'Commande mise à jour',
-      description: `Statut : ${getStatusLabel(status)}`,
-    });
-  };
-
-  /* ---------------- DELETE ---------------- */
-  const handleDelete = () => {
-    if (!orderToDelete) return;
-
-    const updatedOrders = orders.filter(o => o.id !== orderToDelete.id);
-    setOrders(updatedOrders);
-    localStorage.setItem('orders', JSON.stringify(updatedOrders));
-
-    toast({
-      title: 'Commande supprimée',
-      variant: 'destructive',
-    });
-
-    setOrderToDelete(null);
-  };
+  }
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Commandes</h1>
-          <p className="text-muted-foreground mt-1">
-            Gérez les commandes de vos clients
-          </p>
+        {/* HEADER */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/admin/orders')}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+
+          <div className="flex-1">
+            <h1 className="text-3xl font-display font-semibold">
+              Commande #{order.id.slice(0, 8)}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Passée le{' '}
+              {format(new Date(order.created_at), "d MMMM yyyy 'à' HH:mm", {
+                locale: fr,
+              })}
+            </p>
+          </div>
+
+          <span
+            className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
+              order.status
+            )}`}
+          >
+            {getStatusLabel(order.status)}
+          </span>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par nom, email ou téléphone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* ITEMS */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Articles commandés
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.order_items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-4 p-4 border rounded-lg"
+                >
+                  <div className="w-16 h-16 bg-secondary rounded overflow-hidden">
+                    {item.product?.images?.[0] ? (
+                      <img
+                        src={item.product.images[0]}
+                        alt={item.product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Package className="h-6 w-6 m-auto text-muted-foreground" />
+                    )}
+                  </div>
 
-        {/* Orders Table */}
-        <div className="border border-border rounded-lg overflow-hidden">
-          {isLoading ? (
-            <div className="p-4 space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16" />
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {item.product?.name || 'Produit supprimé'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Quantité: {item.quantity}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-semibold">
+                      {item.price.toFixed(2)} MAD
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      × {item.quantity}
+                    </p>
+                  </div>
+                </div>
               ))}
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="p-12 text-center">
-              <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Aucune commande trouvée</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map(order => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <p className="font-medium">
-                        {order.customer.firstName} {order.customer.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer.city || '-'}
-                      </p>
-                    </TableCell>
 
-                    <TableCell>
-                      <p className="text-sm">{order.customer.email}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer.phone}
-                      </p>
-                    </TableCell>
+              <div className="border-t pt-4 flex justify-between font-semibold text-lg">
+                <span>Total</span>
+                <span>{order.total.toFixed(2)} MAD</span>
+              </div>
+            </CardContent>
+          </Card>
 
-                    <TableCell className="font-semibold">
-                      {order.total.toFixed(0)} MAD
-                    </TableCell>
+          {/* RIGHT */}
+          <div className="space-y-6">
+            {/* STATUS */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Statut</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select
+                  value={order.status}
+                  onValueChange={(v) =>
+                    handleStatusChange(v as OrderStatus)
+                  }
+                  disabled={updateStatus.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                    <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {getStatusLabel(order.status)}
-                      </span>
-                    </TableCell>
+                {order.status === 'pending' && (
+                  <div className="flex gap-2">
+                    <Button
+                      className="w-full"
+                      onClick={() => handleStatusChange('confirmed')}
+                      disabled={updateStatus.isPending}
+                    >
+                      Confirmer
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleStatusChange('cancelled')}
+                      disabled={updateStatus.isPending}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(order.createdAt), 'dd MMM yyyy', { locale: fr })}
-                    </TableCell>
+            {/* CUSTOMER */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Client</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <User className="h-5 w-5" />
+                  {order.customer_name}
+                </div>
+                <div className="flex gap-2">
+                  <Mail className="h-5 w-5" />
+                  {order.email}
+                </div>
+                <div className="flex gap-2">
+                  <Phone className="h-5 w-5" />
+                  {order.phone}
+                </div>
+                <div className="flex gap-2">
+                  <MapPin className="h-5 w-5" />
+                  {order.address} – {order.city}
+                </div>
+              </CardContent>
+            </Card>
 
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {order.status === 'pending' && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-
-                        <Link to={`/admin/orders/${order.id}`}>
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setOrderToDelete(order)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+            {order.notes && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">{order.notes}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Delete Dialog */}
-      <AlertDialog open={!!orderToDelete} onOpenChange={() => setOrderToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la commande ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer la commande de{' '}
-              <strong>
-                {orderToDelete?.customer.firstName} {orderToDelete?.customer.lastName}
-              </strong>
-              ?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AdminLayout>
   );
 };
 
-export default AdminOrders;
+export default AdminOrderDetail;

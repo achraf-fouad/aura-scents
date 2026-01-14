@@ -34,18 +34,28 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
 const AdminOrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: order, isLoading } = useOrder(id || '');
+
+  const { data: order, isLoading } = useOrder(id ?? '');
   const updateStatus = useUpdateOrderStatus();
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (!id) return;
+    if (!id || !order || order.status === newStatus) return;
 
-    await updateStatus.mutateAsync({ id, status: newStatus });
+    try {
+      await updateStatus.mutateAsync({ id, status: newStatus });
 
-    toast({
-      title: 'Statut mis à jour',
-      description: `Commande ${getStatusLabel(newStatus)}`,
-    });
+      toast({
+        title: 'Statut mis à jour ✅',
+        description: `Commande ${getStatusLabel(newStatus)}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erreur ❌',
+        description: 'Impossible de mettre à jour le statut.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isLoading) {
@@ -78,9 +88,13 @@ const AdminOrderDetail: React.FC = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
+        {/* HEADER */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/orders')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/admin/orders')}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
 
@@ -96,7 +110,11 @@ const AdminOrderDetail: React.FC = () => {
             </p>
           </div>
 
-          <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+          <span
+            className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
+              order.status
+            )}`}
+          >
             {getStatusLabel(order.status)}
           </span>
         </div>
@@ -138,8 +156,12 @@ const AdminOrderDetail: React.FC = () => {
                   </div>
 
                   <div className="text-right">
-                    <p className="font-semibold">{item.price.toFixed(2)} MAD</p>
-                    <p className="text-sm text-muted-foreground">× {item.quantity}</p>
+                    <p className="font-semibold">
+                      {item.price.toFixed(2)} MAD
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      × {item.quantity}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -151,7 +173,7 @@ const AdminOrderDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* RIGHT COLUMN */}
+          {/* RIGHT */}
           <div className="space-y-6">
             {/* STATUS */}
             <Card>
@@ -161,7 +183,9 @@ const AdminOrderDetail: React.FC = () => {
               <CardContent className="space-y-4">
                 <Select
                   value={order.status}
-                  onValueChange={(v) => handleStatusChange(v as OrderStatus)}
+                  onValueChange={(v) =>
+                    handleStatusChange(v as OrderStatus)
+                  }
                   disabled={updateStatus.isPending}
                 >
                   <SelectTrigger>
@@ -181,6 +205,7 @@ const AdminOrderDetail: React.FC = () => {
                     <Button
                       className="w-full"
                       onClick={() => handleStatusChange('confirmed')}
+                      disabled={updateStatus.isPending}
                     >
                       Confirmer
                     </Button>
@@ -188,6 +213,7 @@ const AdminOrderDetail: React.FC = () => {
                       variant="destructive"
                       className="w-full"
                       onClick={() => handleStatusChange('cancelled')}
+                      disabled={updateStatus.isPending}
                     >
                       Annuler
                     </Button>
